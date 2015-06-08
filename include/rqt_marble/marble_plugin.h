@@ -87,6 +87,8 @@ private Q_SLOTS:
   void enableNavigation(bool checked);
   void routeChanged();
 
+  void gpsUpdate(qreal, qreal);
+
 private:
   Ui_MarblePluginWidget ui_;
   QWidget* widget_;
@@ -113,6 +115,9 @@ private:
    * @return: the route as an rqt_marble::RouteGPS message
    */
   rqt_marble::RouteGps marbleRouteToROS(Marble::Route route);
+
+  // for recentering
+  qreal x_, y_;
 };
 } // namespace
 #endif // _MARBLE_PLUGIN_H

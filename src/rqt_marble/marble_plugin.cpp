@@ -57,7 +57,8 @@ namespace rqt_marble
 MarblePlugin::MarblePlugin() :
     rqt_gui_cpp::Plugin(),
     widget_(0),
-    do_navigation_(false)
+    do_navigation_(false),
+    x_(-1), y_(-1)
 {
   // give QObjects reasonable names
   setObjectName("MarbleWidgetPlugin");
@@ -72,9 +73,6 @@ MarblePlugin::MarblePlugin() :
 void MarblePlugin::initPlugin(qt_gui_cpp::PluginContext& context)
 {
   ROS_INFO("in initPlugin");
-
-  // access standalone command line arguments
-  QStringList argv = context.argv();
 
   initWidget(context);
 
@@ -140,6 +138,8 @@ void MarblePlugin::initWidget(qt_gui_cpp::PluginContext& context)
           SLOT(routeChanged()));
 }
 
+// CLEANUP: this looks reasonable.
+// TODO: is there a library function for this? what does rviz use?
 void MarblePlugin::findGpsTopics()
 {
   using namespace ros::master;
@@ -153,7 +153,6 @@ void MarblePlugin::findGpsTopics()
     TopicInfo topic = (TopicInfo)(*it);
     if (topic.datatype.compare("sensor_msgs/NavSatFix") == 0)
     {
-// std::cout << "found " << topic.name << std::endl;
       QString lineEdit_string(topic.name.c_str());
       ui_._gpstopic_combobox->addItem(lineEdit_string);
     }
@@ -162,10 +161,12 @@ void MarblePlugin::findGpsTopics()
 
 void MarblePlugin::shutdownPlugin()
 {
-// unregister all publishers here
+  // unregister all publishers here
   m_sat_nav_fix_subscriber.shutdown();
+  // TODO: unregister route publisher
 }
 
+// CLEANUP TODO: why bother?
 void MarblePlugin::changeMarbleModelTheme(int idx)
 {
   QStandardItemModel* model =
@@ -179,8 +180,8 @@ void MarblePlugin::changeMarbleModelTheme(int idx)
 void MarblePlugin::changeGpsTopic(const QString &topic_name)
 {
   m_sat_nav_fix_subscriber.shutdown();
-  m_sat_nav_fix_subscriber = getNodeHandle().subscribe<sensor_msgs::NavSatFix>(
-      topic_name.toStdString().c_str(), 10, &MarblePlugin::gpsCallback, this);
+  m_sat_nav_fix_subscriber = nh_.subscribe<sensor_msgs::NavSatFix>(
+      topic_name.toStdString(), 10, &MarblePlugin::gpsCallback, this);
 }
 
 void MarblePlugin::setKmlFile(bool envoke_file_dialog)
@@ -207,39 +208,41 @@ void MarblePlugin::setKmlFile(bool envoke_file_dialog)
   }
 }
 
+// CLEANUP: passthough to QT signal
 void MarblePlugin::gpsCallback(const sensor_msgs::NavSatFixConstPtr& gpspt)
 {
-// std::cout << "GPS Callback " << gpspt->longitude << " " << gpspt->latitude << std::endl;
   assert(widget_);
 
-// Emit newGpsPosition only, if it changes significantly. Has to be somehow related to the zoom
-  static qreal _x = -1;
-  static qreal _y = -1;
+  emit gpsUpdate(gpspt->longitude, gpspt->latitude);
+}
 
+// CLEANUP: appears to work. not terribly smooth?
+void MarblePlugin::gpsUpdate(qreal lon, qreal lat) {
+
+  // Emit newGpsPosition only, if it changes significantly. Has to be somehow
+  // related to the zoom
   qreal x;
   qreal y;
 
-// Recenter if lat long is not on screen
-  bool recenter = !ui_.marble_widget->screenCoordinates(gpspt->longitude,
-                                                        gpspt->latitude, x, y);
+  // Recenter if lat long is not on screen
+  bool recenter = !ui_.marble_widget->screenCoordinates(lon, lat, x, y);
   recenter |= ui_._checkBox_centering->isChecked();
 
-// Recenter if lat long within <threshold> pixels away from center
+  // Recenter if lat long within <threshold> pixels away from center
   qreal threshold = 20;
-  recenter |= ((x - _x) * (x - _x) + (y - _y) * (y - _y)) > threshold;
+  recenter |= ((x - x_) * (x - x_) + (y - y_) * (y - y_)) > threshold;
 
   if (recenter)
   {
-    emit newGpsPosition(gpspt->longitude, gpspt->latitude);
-    ui_.marble_widget->screenCoordinates(gpspt->longitude, gpspt->latitude, _x,
-                                         _y);
+    emit newGpsPosition(lon, lat);
+    ui_.marble_widget->screenCoordinates(lon, lat, x_, y_);
   }
 }
 
 void MarblePlugin::saveSettings(qt_gui_cpp::Settings& plugin_settings,
                                 qt_gui_cpp::Settings& instance_settings) const
 {
-// save intrinsic configuration, usually using:
+  // save intrinsic configuration, usually using:
   QString topic(m_sat_nav_fix_subscriber.getTopic().c_str());
   instance_settings.setValue("rqt_marble_topic", topic);
   instance_settings.setValue(
@@ -256,7 +259,7 @@ void MarblePlugin::restoreSettings(
     const qt_gui_cpp::Settings& plugin_settings,
     const qt_gui_cpp::Settings& instance_settings)
 {
-// restore intrinsic configuration, usually using:
+  // restore intrinsic configuration, usually using:
   const QString topic = instance_settings.value("rqt_marble_topic").toString();
   changeGpsTopic(topic);
 
@@ -268,11 +271,9 @@ void MarblePlugin::restoreSettings(
   ui_._checkBox_centering->setChecked(
       instance_settings.value("marble_center", true).toBool());
 
-// std::cout << "Set distance " << instance_settings.value( "rqt_marble_zoom" ).toReal() << std::endl;
-
   setKmlFile(false);
 
-// @TODO: Does not work since the KML loading changes the zoom
+  // @TODO: Does not work since the KML loading changes the zoom
   ui_.marble_widget->setDistance(
       instance_settings.value("rqt_marble_zoom", 0.05).toReal());
 }
