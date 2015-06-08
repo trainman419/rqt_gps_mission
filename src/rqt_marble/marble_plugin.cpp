@@ -167,6 +167,7 @@ void MarblePlugin::shutdownPlugin()
 }
 
 // CLEANUP TODO: why bother?
+// TODO: doesn't stick. marble model changes when zooming
 void MarblePlugin::changeMarbleModelTheme(int idx)
 {
   QStandardItemModel* model =
@@ -239,6 +240,7 @@ void MarblePlugin::gpsUpdate(qreal lon, qreal lat) {
   }
 }
 
+// CLEANUP: needs to be reviewed
 void MarblePlugin::saveSettings(qt_gui_cpp::Settings& plugin_settings,
                                 qt_gui_cpp::Settings& instance_settings) const
 {
@@ -255,6 +257,7 @@ void MarblePlugin::saveSettings(qt_gui_cpp::Settings& plugin_settings,
                              ui_._checkBox_centering->isChecked());
 }
 
+// CLEANUP: needs to be reviewed
 void MarblePlugin::restoreSettings(
     const qt_gui_cpp::Settings& plugin_settings,
     const qt_gui_cpp::Settings& instance_settings)
@@ -288,11 +291,14 @@ void MarblePlugin::restoreSettings(
  // Usually used to open a dialog to offer the user a set of configuration
  }*/
 
+// CLEANUP: done
 void MarblePlugin::enableNavigation(bool checked)
 {
   do_navigation_ = checked;
 }
 
+// CLEANUP: should work. could be simpler
+// TODO: not sure what calls this
 void MarblePlugin::routeChanged()
 {
   if(do_navigation_) {
@@ -302,9 +308,11 @@ void MarblePlugin::routeChanged()
   }
 }
 
+// CLEANUP: cleaned up but untested
 rqt_marble::RouteGps MarblePlugin::marbleRouteToROS(Marble::Route route)
 {
   rqt_marble::RouteGps route_gps;
+  route_gps.header.stamp = ros::Time::now();
 
   ROS_DEBUG("size of route %d", route.size());
   for (int i = 0; i < route.size(); i++) {
