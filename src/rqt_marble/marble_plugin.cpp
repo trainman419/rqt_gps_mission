@@ -76,7 +76,7 @@ void MarblePlugin::initPlugin(qt_gui_cpp::PluginContext& context)
 
   initWidget(context);
 
-  this->findGpsTopics();
+  emit findGpsTopics();
 }
 
 void MarblePlugin::initWidget(qt_gui_cpp::PluginContext& context)
@@ -89,13 +89,12 @@ void MarblePlugin::initWidget(qt_gui_cpp::PluginContext& context)
   ui_.setupUi(widget_);
   ui_.marble_widget->setMapThemeId("earth/openstreetmap/openstreetmap.dgml");
   ui_.marble_widget->setProjection(Marble::Mercator);
-  //ui_.marble_widget->centerOn(115.87164, -31.93452, false); // My Happy Place: The Scotto
   ui_.marble_widget->centerOn(-122.0795, 37.4000, false); // OSRF
   ui_.marble_widget->setDistance(0.05);
 
   context.addWidget(widget_);
-  map_theme_manager = new Marble::MapThemeManager(widget_);
-  ui_._combobox_theme->setModel(map_theme_manager->mapThemeModel());
+  map_theme_manager_ = new Marble::MapThemeManager(widget_);
+  ui_._combobox_theme->setModel(map_theme_manager_->mapThemeModel());
 
   QIcon refresh_icon; //set refresh icon
   std::string path = ros::package::getPath("rqt_marble") + "/etc/refresh.png";
@@ -121,6 +120,11 @@ void MarblePlugin::initWidget(qt_gui_cpp::PluginContext& context)
           SLOT(changeMarbleModelTheme(int)));
   connect(ui_._checkbox_navigation, SIGNAL(clicked(bool)), this,
           SLOT(enableNavigation(bool)));
+
+  /*
+  connect(map_theme_manager_->mapThemeModel(), SIGNAL(dataChanged(const QModelIndex, const QModelIndex)), this,
+      SLOT(mapThemesChanged(const QModelIndex, const QModelIndex)));
+      */
 
 // AutoNavigation Connections ... soon
 //  m_autoNavigation = new Marble::AutoNavigation(ui_.marble_widget->model(), ui_.ui_.marble_widget->viewport(), this);
@@ -171,9 +175,11 @@ void MarblePlugin::shutdownPlugin()
 void MarblePlugin::changeMarbleModelTheme(int idx)
 {
   QStandardItemModel* model =
-      map_theme_manager->mapThemeModel();
+      map_theme_manager_->mapThemeModel();
   QModelIndex index = model->index(idx, 0);
   QString theme = model->data(index, Qt::UserRole + 1).toString();
+
+  ROS_INFO_STREAM("Switching to theme " << idx << ", " << theme.toStdString());
 
   ui_.marble_widget->setMapThemeId(theme);
 }
@@ -262,6 +268,8 @@ void MarblePlugin::restoreSettings(
     const qt_gui_cpp::Settings& plugin_settings,
     const qt_gui_cpp::Settings& instance_settings)
 {
+  ROS_INFO("Restoring settings");
+
   // restore intrinsic configuration, usually using:
   const QString topic = instance_settings.value("rqt_marble_topic").toString();
   changeGpsTopic(topic);

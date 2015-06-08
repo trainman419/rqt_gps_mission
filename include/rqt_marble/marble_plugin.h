@@ -87,6 +87,10 @@ private Q_SLOTS:
   void enableNavigation(bool checked);
   void routeChanged();
 
+  /**
+   * Capture GPS Topics from ROS and set the topic names on combo box.
+   */
+  void findGpsTopics();
   void gpsUpdate(qreal, qreal);
 
 private:
@@ -96,15 +100,10 @@ private:
   Marble::RoutingManager* routing_manager;
   Marble::RouteRequest* request;
   Marble::RoutingModel* routeModel;
-  Marble::MapThemeManager* map_theme_manager;
+  Marble::MapThemeManager* map_theme_manager_;
 
   void initWidget(qt_gui_cpp::PluginContext& context);
 
-  /**
-   * Capture GPS Topics from ROS and set the topic names on combo box.
-   */
-  void findGpsTopics();
-  
   /* ROS bits */
   ros::NodeHandle nh_;
   ros::Publisher route_pub_;
