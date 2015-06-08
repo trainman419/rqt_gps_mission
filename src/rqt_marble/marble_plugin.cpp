@@ -46,7 +46,6 @@
 #include <ros/package.h>
 
 #include "rqt_marble/marble_plugin.h"
-#include "rqt_marble/bridge_ros_marble.h"
 
 // @TODO: setDistance does not work on reloading
 // @TODO: ComboBox for the MarbleWidget projection method
@@ -56,13 +55,14 @@ namespace rqt_marble
 {
 
 MarblePlugin::MarblePlugin() :
-    rqt_gui_cpp::Plugin(), widget_(0)
+    rqt_gui_cpp::Plugin(),
+    widget_(0),
+    do_navigation_(false)
 {
   // give QObjects reasonable names
   setObjectName("MarbleWidgetPlugin");
 
-  this->ros_navigation = new BridgeRosMarble();
-
+  route_pub_ = nh_.advertise<RouteGps>("route_gps", 1000);
   ROS_INFO("in constructor");
 }
 
@@ -289,16 +289,42 @@ void MarblePlugin::restoreSettings(
 
 void MarblePlugin::enableNavigation(bool checked)
 {
-  if (checked)
-    this->ros_navigation->setDoNavigation(true);
-  else
-    this->ros_navigation->setDoNavigation(false);
+  do_navigation_ = checked;
 }
 
 void MarblePlugin::routeChanged()
 {
-  Marble::Route route = this->routeModel->route();
-  this->ros_navigation->publishRouteInGps(route);
+  if(do_navigation_) {
+    Marble::Route route = this->routeModel->route();
+    rqt_marble::RouteGps ros_route = marbleRouteToROS(route);
+    route_pub_.publish(ros_route);
+  }
+}
+
+rqt_marble::RouteGps MarblePlugin::marbleRouteToROS(Marble::Route route)
+{
+  rqt_marble::RouteGps route_gps;
+
+  ROS_DEBUG("size of route %d", route.size());
+  for (int i = 0; i < route.size(); i++) {
+    Marble::GeoDataLineString route_segment_line_str = route.at(i).path();
+    for (int j = 0; j < route_segment_line_str.size(); j++)
+    {
+      Marble::GeoDataCoordinates coord = route_segment_line_str.at(j);
+      // create GPS msg for ROS
+      sensor_msgs::NavSatFix gps_msg;
+      gps_msg.latitude = coord.latitude();
+      gps_msg.longitude = coord.longitude();
+      gps_msg.status.status = sensor_msgs::NavSatStatus::STATUS_FIX;
+      gps_msg.status.service = sensor_msgs::NavSatStatus::SERVICE_GPS;
+
+      ROS_INFO("#%dth seg; coord#%dlongi=%f lat=%f", i, j, gps_msg.latitude,
+               gps_msg.longitude);
+
+      route_gps.routes.push_back(gps_msg);
+    }
+  }
+  return route_gps;
 }
 
 } // namespace

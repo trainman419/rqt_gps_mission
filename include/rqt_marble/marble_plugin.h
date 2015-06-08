@@ -35,12 +35,13 @@
 #include <marble/RouteRequest.h>
 #include <marble/RoutingManager.h>
 #include <marble/MapThemeManager.h>
+#include <marble/Route.h>
 
 #include <ros/ros.h>
 #include <rqt_gui_cpp/plugin.h>
 #include <sensor_msgs/NavSatFix.h>
+#include <rqt_marble/RouteGps.h>
 
-#include <rqt_marble/bridge_ros_marble.h>
 #include <ui_marble_plugin.h> // Generated into ./build/rqt_robot_plugins/rqt_marble by Catkin.
 
 namespace rqt_marble
@@ -94,7 +95,6 @@ private:
   Marble::RouteRequest* request;
   Marble::RoutingModel* routeModel;
   Marble::MapThemeManager* map_theme_manager;
-  rqt_marble::BridgeRosMarble* ros_navigation;
 
   void initWidget(qt_gui_cpp::PluginContext& context);
 
@@ -102,6 +102,17 @@ private:
    * Capture GPS Topics from ROS and set the topic names on combo box.
    */
   void findGpsTopics();
+  
+  /* ROS bits */
+  ros::NodeHandle nh_;
+  ros::Publisher route_pub_;
+  bool do_navigation_;
+
+  /**
+   * @arg Route route: the route to convert
+   * @return: the route as an rqt_marble::RouteGPS message
+   */
+  rqt_marble::RouteGps marbleRouteToROS(Marble::Route route);
 };
 } // namespace
 #endif // _MARBLE_PLUGIN_H
